@@ -6,16 +6,24 @@ type Params = {
 };
 
 // Update Task
-export async function PUT(req: Request, { params }: Params) {
-  const body = await req.json();
-  const { title, description, status } = body;
+// ✅ GET handler yang kurang
+export async function GET(_req: Request, { params }: Params) {
+  try {
+    const task = await prisma.task.findUnique({
+      where: { id: params.id },
+    });
 
-  const updated = await prisma.task.update({
-    where: { id: params.id },
-    data: { title, description, status },
-  });
+    if (!task) {
+      return NextResponse.json({ message: "Task not found" }, { status: 404 });
+    }
 
-  return NextResponse.json(updated);
+    return NextResponse.json(task);
+  } catch {
+    return NextResponse.json(
+      { message: "Something went wrong" },
+      { status: 500 }
+    );
+  }
 }
 
 // Delete Task

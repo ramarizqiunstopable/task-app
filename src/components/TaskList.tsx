@@ -1,10 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import TaskForm from "./TaskForm";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+
+// Import icon
+import {
+  FaHourglassStart,
+  FaSpinner,
+  FaCheckCircle,
+  FaEdit,
+  FaTrash,
+  FaPlus,
+} from "react-icons/fa";
 
 type Task = {
   id: string;
@@ -16,7 +26,7 @@ type Task = {
 
 export default function TaskList() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const router = useRouter();
 
   const fetchTasks = async () => {
     const res = await fetch("/api/tasks");
@@ -32,26 +42,31 @@ export default function TaskList() {
   const getStatusBadge = (status: Task["status"]) => {
     let colorClass = "";
     let text = "";
+    let IconComponent;
 
     switch (status) {
       case "PENDING":
         colorClass = "bg-red-100 text-red-600";
         text = "Pending";
+        IconComponent = FaHourglassStart;
         break;
       case "IN_PROGRESS":
-        colorClass = "bg-orange-100 text-orange-600";
+        colorClass = "bg-yellow-100 text-yellow-600";
         text = "In Progress";
+        IconComponent = FaSpinner;
         break;
       case "COMPLETED":
         colorClass = "bg-green-100 text-green-600";
         text = "Completed";
+        IconComponent = FaCheckCircle;
         break;
     }
 
     return (
       <Badge
-        className={`rounded-full px-2 py-1 text-xs font-medium ${colorClass}`}
+        className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${colorClass}`}
       >
+        <IconComponent className="text-sm" />
         {text}
       </Badge>
     );
@@ -62,7 +77,7 @@ export default function TaskList() {
       case "PENDING":
         return "text-red-600";
       case "IN_PROGRESS":
-        return "text-orange-600";
+        return "text-yellow-600";
       case "COMPLETED":
         return "text-green-600";
       default:
@@ -76,15 +91,13 @@ export default function TaskList() {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold">📝 Task Manager</h1>
-
-      <TaskForm
-        task={editingTask || undefined}
-        onSuccess={() => {
-          setEditingTask(null);
-          fetchTasks();
-        }}
-      />
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">📝 Task Manager App</h1>
+        <Button onClick={() => router.push("/tasks/tambah")}>
+          <FaPlus className="text-sm" />
+          Tambah Task
+        </Button>
+      </div>
 
       <div className="space-y-4">
         {tasks.map((task) => (
@@ -101,18 +114,18 @@ export default function TaskList() {
                 <div className="flex items-center gap-2">
                   {getStatusBadge(task.status)}
                   <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setEditingTask(task)}
+                    onClick={() => router.push(`/tasks/edit/${task.id}`)}
+                    className="rounded-full mx-auto bg-yellow-100 text-yellow-600 hover:bg-yellow-200 p-2"
+                    size="icon"
                   >
-                    Edit
+                    <FaEdit className="text-sm" />
                   </Button>
                   <Button
-                    variant="destructive"
-                    size="sm"
                     onClick={() => handleDelete(task.id)}
+                    className="rounded-full bg-red-100 text-red-600 hover:bg-red-200 p-2"
+                    size="icon"
                   >
-                    Hapus
+                    <FaTrash className="text-sm" />
                   </Button>
                 </div>
               </div>
