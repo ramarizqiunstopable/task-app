@@ -1,6 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter } from "next/navigation";
+import { toast, ToastContainer } from "react-toastify";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,73 +18,116 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 
-type Task = {
-  id?: string;
-  title: string;
-  description: string;
-  status: "PENDING" | "IN_PROGRESS" | "COMPLETED";
-};
+const taskSchema = z.object({
+  title: z.string().min(1, "Judul harus diisi"),
+  description: z.string().min(1, "Deskripsi harus diisi"),
+  status: z.enum(["PENDING", "IN_PROGRESS", "COMPLETED"]),
+});
 
+type TaskFormValues = z.infer<typeof taskSchema>;
 type Props = {
   onSuccess?: () => void;
 };
 
 export default function TaskForm({ onSuccess }: Props) {
-  const [form, setForm] = useState<Task>({
-    title: "",
-    description: "",
-    status: "PENDING",
+  const router = useRouter();
+
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    reset,
+    formState: { errors },
+  } = useForm<TaskFormValues>({
+    resolver: zodResolver(taskSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      status: "PENDING",
+    },
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const status = watch("status");
 
-    await fetch("/api/tasks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
+  const onSubmit = async (data: TaskFormValues) => {
+    try {
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
 
-    setForm({ title: "", description: "", status: "PENDING" });
-    onSuccess?.();
+      if (!res.ok) throw new Error("Gagal menambah task");
+
+      toast.success("Task berhasil ditambahkan!");
+      reset();
+
+      onSuccess?.();
+
+      setTimeout(() => {
+        router.push("/");
+      }, 3000);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else {
+        toast.error("Terjadi kesalahan saat menambahkan task.");
+      }
+    }
   };
 
   return (
     <Card className="w-full max-w-md mx-auto mt-10">
+      <ToastContainer position="top-right" autoClose={3000} />
       <CardHeader>
         <CardTitle>Tambah Task</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
-            placeholder="Judul Task"
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-            required
-          />
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div>
+            <Input placeholder="Judul Task" {...register("title")} />
+            {errors.title && (
+              <p className="text-sm text-red-500 mt-1">
+                {errors.title.message}
+              </p>
+            )}
+          </div>
 
-          <Textarea
-            placeholder="Deskripsi Task"
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-            required
-          />
+          <div>
+            <Textarea
+              placeholder="Deskripsi Task"
+              {...register("description")}
+            />
+            {errors.description && (
+              <p className="text-sm text-red-500 mt-1">
+                {errors.description.message}
+              </p>
+            )}
+          </div>
 
-          <Select
-            value={form.status}
-            onValueChange={(value) =>
-              setForm({ ...form, status: value as Task["status"] })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Pilih status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="PENDING">PENDING</SelectItem>
-              <SelectItem value="IN_PROGRESS">IN PROGRESS</SelectItem>
-              <SelectItem value="COMPLETED">COMPLETED</SelectItem>
-            </SelectContent>
-          </Select>
+          <div>
+            <Select
+              value={status}
+              onValueChange={(val) =>
+                setValue("status", val as TaskFormValues["status"])
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Pilih status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="PENDING">PENDING</SelectItem>
+                <SelectItem value="IN_PROGRESS">IN PROGRESS</SelectItem>
+                <SelectItem value="COMPLETED">COMPLETED</SelectItem>
+              </SelectContent>
+            </Select>
+            {errors.status && (
+              <p className="text-sm text-red-500 mt-1">
+                {errors.status.message}
+              </p>
+            )}
+          </div>
 
           <Button type="submit" className="w-full">
             Tambah Task
