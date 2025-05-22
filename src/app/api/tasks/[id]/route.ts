@@ -5,8 +5,7 @@ type Params = {
   params: { id: string };
 };
 
-// Update Task
-// ✅ GET handler yang kurang
+// Get Task by ID
 export async function GET(_req: Request, { params }: Params) {
   try {
     const task = await prisma.task.findUnique({
@@ -18,9 +17,31 @@ export async function GET(_req: Request, { params }: Params) {
     }
 
     return NextResponse.json(task);
-  } catch {
+  } catch (error) {
+    console.error("GET error:", error);
     return NextResponse.json(
-      { message: "Something went wrong" },
+      { message: "Failed to fetch task" },
+      { status: 500 }
+    );
+  }
+}
+
+// Update Task
+export async function PUT(req: Request, { params }: Params) {
+  try {
+    const body = await req.json();
+    const { title, description, status } = body;
+
+    const updated = await prisma.task.update({
+      where: { id: params.id },
+      data: { title, description, status },
+    });
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error("Update error:", error);
+    return NextResponse.json(
+      { message: "Failed to update task" },
       { status: 500 }
     );
   }

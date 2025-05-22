@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { toast, ToastContainer } from "react-toastify";
 
 // Import icon
 import {
@@ -29,14 +30,33 @@ export default function TaskList() {
   const router = useRouter();
 
   const fetchTasks = async () => {
-    const res = await fetch("/api/tasks");
-    const data = await res.json();
-    setTasks(data);
+    try {
+      const res = await fetch("/api/tasks");
+      const data = await res.json();
+      setTasks(data);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else {
+        toast.error("Terjadi kesalahan saat mengupdate task.");
+      }
+    }
   };
 
   const handleDelete = async (id: string) => {
-    await fetch(`/api/tasks/${id}`, { method: "DELETE" });
-    fetchTasks();
+    try {
+      const res = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Delete failed");
+
+      toast.success("Task berhasil dihapus");
+      fetchTasks();
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else {
+        toast.error("Terjadi kesalahan saat mengupdate task.");
+      }
+    }
   };
 
   const getStatusBadge = (status: Task["status"]) => {
@@ -85,57 +105,91 @@ export default function TaskList() {
     }
   };
 
+  // Format the createdAt date
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const options: Intl.DateTimeFormatOptions = {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    };
+    return new Intl.DateTimeFormat("id-ID", options).format(date);
+  };
+
   useEffect(() => {
     fetchTasks();
   }, []);
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">📝 Task Manager App</h1>
-        <Button onClick={() => router.push("/tasks/tambah")}>
+    <div className="p-4 sm:p-6 space-y-6 max-w-5xl mx-auto">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h1 className="text-2xl font-bold text-center sm:text-left w-full">
+          📝 Task Manager App
+        </h1>
+        <ToastContainer position="top-right" autoClose={2000} />
+        <Button
+          onClick={() => router.push("/tasks/tambah")}
+          className="flex items-center gap-2"
+        >
           <FaPlus className="text-sm" />
           Tambah Task
         </Button>
       </div>
 
-      <div className="space-y-4">
-        {tasks.map((task) => (
-          <Card key={task.id}>
-            <CardContent className="p-4 space-y-2">
-              <div className="flex justify-between items-center">
-                <div
-                  className={`text-lg font-semibold ${getTitleClass(
-                    task.status
-                  )}`}
-                >
-                  {task.title}
+      {tasks.length === 0 ? (
+        <p className="text-center text-muted-foreground mt-10">
+          Belum ada task. Yuk tambah dulu!
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {tasks.map((task) => (
+            <Card
+              key={task.id}
+              className="w-full h-full flex flex-col justify-between"
+            >
+              <CardContent className="p-4 space-y-3 flex flex-col justify-between h-full">
+                <div>
+                  {/* Display the createdAt date */}
+                  <div className="font-bold  text-xs text-neutral-300 ">
+                    dibuat pada {formatDate(task.createdAt)}
+                  </div>
+                  <div
+                    className={`text-lg font-semibold ${getTitleClass(
+                      task.status
+                    )}`}
+                  >
+                    {task.title}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {task.description}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
+
+                <div className="flex items-center justify-between mt-4">
                   {getStatusBadge(task.status)}
-                  <Button
-                    onClick={() => router.push(`/tasks/edit/${task.id}`)}
-                    className="rounded-full mx-auto bg-yellow-100 text-yellow-600 hover:bg-yellow-200 p-2"
-                    size="icon"
-                  >
-                    <FaEdit className="text-sm" />
-                  </Button>
-                  <Button
-                    onClick={() => handleDelete(task.id)}
-                    className="rounded-full bg-red-100 text-red-600 hover:bg-red-200 p-2"
-                    size="icon"
-                  >
-                    <FaTrash className="text-sm" />
-                  </Button>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={() => router.push(`/tasks/edit/${task.id}`)}
+                      className="rounded-full bg-yellow-100 text-yellow-600 hover:bg-yellow-200 p-2"
+                      size="icon"
+                    >
+                      <FaEdit className="text-sm" />
+                    </Button>
+                    <Button
+                      onClick={() => handleDelete(task.id)}
+                      className="rounded-full bg-red-100 text-red-600 hover:bg-red-200 p-2"
+                      size="icon"
+                    >
+                      <FaTrash className="text-sm" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-              <div className="text-muted-foreground text-sm">
-                {task.description}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
