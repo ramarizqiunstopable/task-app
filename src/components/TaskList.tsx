@@ -6,8 +6,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast, ToastContainer } from "react-toastify";
-
-// Import icon
 import {
   FaHourglassStart,
   FaSpinner,
@@ -15,6 +13,8 @@ import {
   FaEdit,
   FaTrash,
   FaPlus,
+  FaCalendarAlt,
+  FaSearch,
 } from "react-icons/fa";
 
 type Task = {
@@ -27,6 +27,8 @@ type Task = {
 
 export default function TaskList() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const router = useRouter();
 
   const fetchTasks = async () => {
@@ -35,11 +37,7 @@ export default function TaskList() {
       const data = await res.json();
       setTasks(data);
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        toast.error(err.message);
-      } else {
-        toast.error("Terjadi kesalahan saat mengupdate task.");
-      }
+      toast.error(err instanceof Error ? err.message : "Gagal mengambil data.");
     }
   };
 
@@ -51,61 +49,48 @@ export default function TaskList() {
       toast.success("Task berhasil dihapus");
       fetchTasks();
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        toast.error(err.message);
-      } else {
-        toast.error("Terjadi kesalahan saat mengupdate task.");
-      }
+      toast.error(err instanceof Error ? err.message : "Gagal menghapus task.");
     }
   };
 
   const getStatusBadge = (status: Task["status"]) => {
-    let colorClass = "";
-    let text = "";
-    let IconComponent;
-
-    switch (status) {
-      case "PENDING":
-        colorClass = "bg-red-100 text-red-600";
-        text = "Pending";
-        IconComponent = FaHourglassStart;
-        break;
-      case "IN_PROGRESS":
-        colorClass = "bg-yellow-100 text-yellow-600";
-        text = "In Progress";
-        IconComponent = FaSpinner;
-        break;
-      case "COMPLETED":
-        colorClass = "bg-green-100 text-green-600";
-        text = "Completed";
-        IconComponent = FaCheckCircle;
-        break;
-    }
-
+    const statusMap = {
+      PENDING: {
+        color: "bg-red-100 text-red-600",
+        text: "Pending",
+        icon: FaHourglassStart,
+      },
+      IN_PROGRESS: {
+        color: "bg-yellow-100 text-yellow-600",
+        text: "In Progress",
+        icon: FaSpinner,
+      },
+      COMPLETED: {
+        color: "bg-green-100 text-green-600",
+        text: "Completed",
+        icon: FaCheckCircle,
+      },
+    };
+    const { color, text, icon: Icon } = statusMap[status];
     return (
       <Badge
-        className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${colorClass}`}
+        className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${color}`}
       >
-        <IconComponent className="text-sm" />
+        <Icon className="text-sm" />
         {text}
       </Badge>
     );
   };
 
   const getTitleClass = (status: Task["status"]) => {
-    switch (status) {
-      case "PENDING":
-        return "text-red-600";
-      case "IN_PROGRESS":
-        return "text-yellow-600";
-      case "COMPLETED":
-        return "text-green-600";
-      default:
-        return "";
-    }
+    const map = {
+      PENDING: "text-red-600",
+      IN_PROGRESS: "text-yellow-600",
+      COMPLETED: "text-green-600",
+    };
+    return map[status] || "";
   };
 
-  // Format the createdAt date
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const options: Intl.DateTimeFormatOptions = {
@@ -120,13 +105,17 @@ export default function TaskList() {
     fetchTasks();
   }, []);
 
+  const filteredTasks = tasks.filter((task) =>
+    task.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-5xl mx-auto">
+      <ToastContainer position="top-right" autoClose={2000} />
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-2xl font-bold text-center sm:text-left w-full">
           📝 Task Manager App
         </h1>
-        <ToastContainer position="top-right" autoClose={2000} />
         <Button
           onClick={() => router.push("/tasks/tambah")}
           className="flex items-center gap-2"
@@ -136,21 +125,55 @@ export default function TaskList() {
         </Button>
       </div>
 
-      {tasks.length === 0 ? (
+      {/* 🔍 Search with autocomplete */}
+      <div className="relative w-full max-w-md mx-auto">
+        <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+        <input
+          type="text"
+          placeholder="Cari task berdasarkan judul..."
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setShowSuggestions(true);
+          }}
+          className="w-full pl-10 pr-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+        {searchTerm && showSuggestions && (
+          <ul className="absolute z-10 w-full bg-white border rounded-md mt-1 shadow-md max-h-48 overflow-auto">
+            {filteredTasks.slice(0, 5).map((task) => (
+              <li
+                key={task.id}
+                onClick={() => {
+                  setSearchTerm(task.title);
+                  setShowSuggestions(false);
+                }}
+                className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+              >
+                {task.title}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* 📋 Task List */}
+      {filteredTasks.length === 0 ? (
         <p className="text-center text-muted-foreground mt-10">
-          Belum ada task. Yuk tambah dulu!
+          {tasks.length === 0
+            ? "Belum ada task. Yuk tambah dulu!"
+            : "Task tidak ditemukan."}
         </p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {tasks.map((task) => (
+          {filteredTasks.map((task) => (
             <Card
               key={task.id}
               className="w-full h-full flex flex-col justify-between"
             >
               <CardContent className="p-4 space-y-3 flex flex-col justify-between h-full">
                 <div>
-                  {/* Display the createdAt date */}
-                  <div className="font-bold  text-xs text-neutral-300 ">
+                  <div className="font-bold flex gap-2 text-xs text-neutral-300">
+                    <FaCalendarAlt />
                     dibuat pada {formatDate(task.createdAt)}
                   </div>
                   <div
@@ -164,10 +187,8 @@ export default function TaskList() {
                     {task.description}
                   </div>
                 </div>
-
                 <div className="flex items-center justify-between mt-4">
                   {getStatusBadge(task.status)}
-
                   <div className="flex items-center gap-2">
                     <Button
                       onClick={() => router.push(`/tasks/edit/${task.id}`)}
